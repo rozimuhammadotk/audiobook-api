@@ -5,95 +5,162 @@ const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36';
 const TIMEOUT = 8000;
 
 // ─── 🇷🇺 РУССКИЕ ───────────────────────────────────────
-
 async function searchKnigavuhe(q) {
   try {
     const res = await axios.get(`https://knigavuhe.org/search/?q=${encodeURIComponent(q)}`, {
-      headers: { 'User-Agent': UA }, timeout: TIMEOUT
+      headers: { 
+        'User-Agent': UA,
+        'Accept': 'text/html,application/xhtml+xml',
+        'Accept-Language': 'ru-RU,ru;q=0.9'
+      }, 
+      timeout: TIMEOUT
     });
     const $ = cheerio.load(res.data);
     const results = [];
-    $('.book-item, .b-book, article.book').slice(0, 4).each((i, el) => {
-      const title = $(el).find('.book-title, h2, h3').first().text().trim();
-      const author = $(el).find('.book-author, .author').first().text().trim();
-      const link = $(el).find('a').first().attr('href') || '';
-      const id = link.replace(/\/$/, '').split('/').pop();
-      if (title && id) results.push({ source: 'kv', id, title, author: author || '—', lang: 'ru' });
+
+    // Пробуем все возможные селекторы
+    const items = $('.b-book__title, .book__title, [class*="book"] a, .title a').slice(0, 4);
+    items.each((i, el) => {
+      const title = $(el).text().trim();
+      const link = $(el).attr('href') || $(el).closest('a').attr('href') || '';
+      const id = link.replace(/\/$/, '').split('/').filter(Boolean).pop();
+      if (title && id && id.length > 2) {
+        results.push({ source: 'kv', id, title, author: '—', lang: 'ru' });
+      }
     });
+
+    // Если всё равно пусто — берём все ссылки с /book/ в URL
+    if (results.length === 0) {
+      $('a[href*="/book/"]').slice(0, 4).each((i, el) => {
+        const title = $(el).text().trim();
+        const link = $(el).attr('href') || '';
+        const id = link.replace(/\/$/, '').split('/').filter(Boolean).pop();
+        if (title && id && title.length > 3) {
+          results.push({ source: 'kv', id, title, author: '—', lang: 'ru' });
+        }
+      });
+    }
+
     return results;
-  } catch { return []; }
+  } catch(e) { return []; }
 }
 
 async function searchAkniga(q) {
   try {
     const res = await axios.get(`https://akniga.org/search/books/?q=${encodeURIComponent(q)}`, {
-      headers: { 'User-Agent': UA }, timeout: TIMEOUT
+      headers: { 
+        'User-Agent': UA,
+        'Accept': 'text/html,application/xhtml+xml',
+        'Accept-Language': 'ru-RU,ru;q=0.9'
+      }, 
+      timeout: TIMEOUT
     });
     const $ = cheerio.load(res.data);
     const results = [];
+
     $('.item--book').slice(0, 4).each((i, el) => {
-      const title = $(el).find('.caption__title').text().trim();
-      const author = $(el).find('.caption__article-author').text().trim();
-      const link = $(el).find('a.cover').attr('href') || '';
-      const id = link.replace(/\/$/, '').split('/').pop();
+      const title = $(el).find('.caption__title, h2, h3').first().text().trim();
+      const author = $(el).find('.caption__article-author, .author').first().text().trim();
+      const link = $(el).find('a').first().attr('href') || '';
+      const id = link.replace(/\/$/, '').split('/').filter(Boolean).pop();
       if (title && id) results.push({ source: 'ak', id, title, author: author || '—', lang: 'ru' });
     });
+
+    // Запасной вариант
+    if (results.length === 0) {
+      $('a[href*="/book/"]').slice(0, 4).each((i, el) => {
+        const title = $(el).text().trim();
+        const link = $(el).attr('href') || '';
+        const id = link.replace(/\/$/, '').split('/').filter(Boolean).pop();
+        if (title && id && title.length > 3) {
+          results.push({ source: 'ak', id, title, author: '—', lang: 'ru' });
+        }
+      });
+    }
+
     return results;
-  } catch { return []; }
+  } catch(e) { return []; }
 }
 
 async function searchAudioboo(q) {
   try {
     const res = await axios.get(`https://audioboo.ru/?s=${encodeURIComponent(q)}`, {
-      headers: { 'User-Agent': UA }, timeout: TIMEOUT
+      headers: { 
+        'User-Agent': UA,
+        'Accept-Language': 'ru-RU,ru;q=0.9'
+      }, 
+      timeout: TIMEOUT
     });
     const $ = cheerio.load(res.data);
     const results = [];
-    $('.post, .book-item, article').slice(0, 4).each((i, el) => {
-      const title = $(el).find('h2, h3, .entry-title').first().text().trim();
-      const author = $(el).find('.author, .book-author').first().text().trim();
-      const link = $(el).find('a').first().attr('href') || '';
+
+    $('article, .post, .book-item').slice(0, 4).each((i, el) => {
+      const title = $(el).find('h2 a, h3 a, .entry-title a').first().text().trim();
+      const link = $(el).find('h2 a, h3 a, .entry-title a').first().attr('href') || '';
       const id = link.replace(/\/$/, '').split('/').filter(Boolean).pop();
-      if (title && id) results.push({ source: 'ab', id, title, author: author || '—', lang: 'ru' });
+      if (title && id) results.push({ source: 'ab', id, title, author: '—', lang: 'ru' });
     });
+
     return results;
-  } catch { return []; }
+  } catch(e) { return []; }
 }
 
 async function searchSoundbook(q) {
   try {
     const res = await axios.get(`https://soundbook.ru/?s=${encodeURIComponent(q)}`, {
-      headers: { 'User-Agent': UA }, timeout: TIMEOUT
+      headers: { 
+        'User-Agent': UA,
+        'Accept-Language': 'ru-RU,ru;q=0.9'
+      }, 
+      timeout: TIMEOUT
     });
     const $ = cheerio.load(res.data);
     const results = [];
-    $('.post, article, .book').slice(0, 4).each((i, el) => {
-      const title = $(el).find('h2, h3, .entry-title').first().text().trim();
-      const author = $(el).find('.author, .book-author').first().text().trim();
-      const link = $(el).find('a').first().attr('href') || '';
+
+    $('article, .post').slice(0, 4).each((i, el) => {
+      const title = $(el).find('h2 a, h3 a, .entry-title a').first().text().trim();
+      const link = $(el).find('h2 a, h3 a, .entry-title a').first().attr('href') || '';
       const id = link.replace(/\/$/, '').split('/').filter(Boolean).pop();
-      if (title && id) results.push({ source: 'sb', id, title, author: author || '—', lang: 'ru' });
+      if (title && id) results.push({ source: 'sb', id, title, author: '—', lang: 'ru' });
     });
+
     return results;
-  } catch { return []; }
+  } catch(e) { return []; }
 }
 
 async function searchAudioknigiClub(q) {
   try {
     const res = await axios.get(`https://audioknigi.club/search/books/?q=${encodeURIComponent(q)}`, {
-      headers: { 'User-Agent': UA }, timeout: TIMEOUT
+      headers: { 
+        'User-Agent': UA,
+        'Accept-Language': 'ru-RU,ru;q=0.9'
+      }, 
+      timeout: TIMEOUT
     });
     const $ = cheerio.load(res.data);
     const results = [];
-    $('.item--book, .book-item, article').slice(0, 4).each((i, el) => {
-      const title = $(el).find('h2, h3, .caption__title').first().text().trim();
-      const author = $(el).find('.author, .caption__article-author').first().text().trim();
+
+    $('.item--book').slice(0, 4).each((i, el) => {
+      const title = $(el).find('.caption__title, h2, h3').first().text().trim();
+      const author = $(el).find('.caption__article-author, .author').first().text().trim();
       const link = $(el).find('a').first().attr('href') || '';
       const id = link.replace(/\/$/, '').split('/').filter(Boolean).pop();
       if (title && id) results.push({ source: 'ac', id, title, author: author || '—', lang: 'ru' });
     });
+
+    if (results.length === 0) {
+      $('a[href*="/book/"]').slice(0, 4).each((i, el) => {
+        const title = $(el).text().trim();
+        const link = $(el).attr('href') || '';
+        const id = link.replace(/\/$/, '').split('/').filter(Boolean).pop();
+        if (title && id && title.length > 3) {
+          results.push({ source: 'ac', id, title, author: '—', lang: 'ru' });
+        }
+      });
+    }
+
     return results;
-  } catch { return []; }
+  } catch(e) { return []; }
 }
 
 // ─── 🇬🇧 АНГЛИЙСКИЕ ────────────────────────────────────
