@@ -3,8 +3,5 @@
     "api/*.js": {
       "maxDuration": 30
     }
-  },
-  "env": {
-    "BOOK_SECRET": "@book_secret"
   }
 }
